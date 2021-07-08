@@ -53,8 +53,8 @@ FLASH_SIZE ?=
 ###############################################################################
 # Things that need to be maintained as the source changes
 #
-
 FORKNAME      = heliflight
+#FORKNAME      = betaflight
 
 # Working directories
 ROOT            := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
