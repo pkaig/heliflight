@@ -172,6 +172,7 @@ void resetPidProfile(pidProfile_t *pidProfile)
         .error_decay_always = 0,
         .error_decay_rate = 7,
         .rescue_collective = 150,
+		.rescue_collective_boost = 5,
 		.rescue_delay = 35,          // Non Inverted rescue: disabled by default		
         .elevator_filter_gain = 50,
         .elevator_filter_window_time = 75,
@@ -213,6 +214,7 @@ static FAST_RAM_ZERO_INIT float collectivePulseFilterGain;
 
 #ifdef USE_HF3D_RESCUE_MODE
 static 	FAST_RAM_ZERO_INIT uint8_t rescueCollective;
+static 	FAST_RAM_ZERO_INIT uint8_t rescueCollectiveBoost;
 uint8_t rescueDelay = 35;   
 static 	FAST_RAM_ZERO_INIT uint16_t 	rescueDelayTarget; 
 static 	FAST_RAM_ZERO_INIT uint16_t 	rescueDelayCurrent = 0;
@@ -615,6 +617,7 @@ void pidInitConfig(const pidProfile_t *pidProfile)
 
 #ifdef USE_HF3D_RESCUE_MODE
     rescueCollective = pidProfile->rescue_collective;
+	rescueCollectiveBoost = pidProfile->rescue_collective_boost;
 	rescueDelay = pidProfile->rescue_delay;
 #endif
 
@@ -736,7 +739,14 @@ FAST_CODE_NOINLINE float pidLevel(int axis, const pidProfile_t *pidProfile, cons
      if (FLIGHT_MODE(RESCUE_MODE)) {
         // Angle mode is now rescue mode.
         float errorAngle = 0.0f;
+		uint8_t rescueCollectiveTemp = 0;
 
+		if (!rescue_Invert) {	//Add collective boost before rescueDelay expires
+			rescueCollectiveTemp = rescueCollective + rescueCollectiveBoost ;
+		} else {
+			rescueCollectiveTemp = rescueCollective ;
+		}
+		
         // -90 Pitch is straight up and +90 is straight down
         // We are always pitching to "zero" whether up-right or inverted
         //   but the control direction needed to get to up-right is different than inverted
@@ -800,12 +810,10 @@ FAST_CODE_NOINLINE float pidLevel(int axis, const pidProfile_t *pidProfile, cons
         //   Same issue up above.  It's minor as long as angleTrim is small, so maybe not worth the calculation overhead?
         if ( ((attitude.values.roll / 10.0f) > 90.0f) || ((attitude.values.roll / 10.0f) < -90.0f) ) {
             // pidLevel will be rolling to inverted, use negative collective pitch
-            rcCommand[COLLECTIVE] = (rescueCollective/100.0 * 500.0 * collectiveReference / mixScales[MIXER_IN_STABILIZED_COLLECTIVE]) * -collectiveInclinationFactor;
-//			rcCommand[COLLECTIVE] = -1.0f * rescueCollectiveTemp
+            rcCommand[COLLECTIVE] = (rescueCollectiveTemp/100.0 * 500.0 * collectiveReference / mixScales[MIXER_IN_STABILIZED_COLLECTIVE]) * -collectiveInclinationFactor;
         } else {
             // pidLevel will be rolling to upright, use positive collective pitch
-            rcCommand[COLLECTIVE] = (rescueCollective/100.0 * 500.0 * collectiveReference / mixScales[MIXER_IN_STABILIZED_COLLECTIVE]) * collectiveInclinationFactor;
-//			rcCommand[COLLECTIVE] = rescueCollectiveTemp
+            rcCommand[COLLECTIVE] = (rescueCollectiveTemp/100.0 * 500.0 * collectiveReference / mixScales[MIXER_IN_STABILIZED_COLLECTIVE]) * collectiveInclinationFactor;
 		}
         // end of Rescue collective override
      }
@@ -1256,7 +1264,7 @@ void FAST_CODE pidController(const pidProfile_t *pidProfile, timeUs_t currentTim
 
     // ----------PID controller----------
     for (int axis = FD_ROLL; axis <= FD_YAW; ++axis) {
-
+#ifdef USE_HF3D_RESCUE_MODE
 		if (!FLIGHT_MODE(RESCUE_MODE)||(rescueDelay > 30)) { //HF3D Non inverted rescue. More than 3 seconds disables non inverted rescue
 			rescueDelayCurrent = 0;
 			rescue_Invert = false;
@@ -1268,7 +1276,8 @@ void FAST_CODE pidController(const pidProfile_t *pidProfile, timeUs_t currentTim
 				rescueDelayCurrent = rescueDelayTarget;
 				rescue_Invert = true;				
 			}
-		}																				   
+		}
+#endif		
         float currentPidSetpoint = getSetpointRate(axis);
         if (maxVelocity[axis]) {
             currentPidSetpoint = accelerationLimit(axis, currentPidSetpoint);
@@ -1284,7 +1293,7 @@ void FAST_CODE pidController(const pidProfile_t *pidProfile, timeUs_t currentTim
                 break;
             FALLTHROUGH;
         case LEVEL_MODE_RP:
-            if (axis == FD_YAW) {
+            if ((axis == FD_YAW) && (!rescue_Invert)) {
                 // HF3D:  No yaw input while corrections are occuring
                 currentPidSetpoint = 0.0f;
                 break;

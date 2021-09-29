@@ -1025,6 +1025,7 @@ const clivalue_t valueTable[] = {
 #endif
 #ifdef USE_HF3D_RESCUE_MODE
     { "rescue_collective",              VAR_UINT8 | PROFILE_VALUE, .config.minmaxUnsigned = { 25, 255 },PG_PID_PROFILE, offsetof(pidProfile_t, rescue_collective) },
+    { "rescue_collective_boost",        VAR_UINT8 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 50 },PG_PID_PROFILE, offsetof(pidProfile_t, rescue_collective_boost) },
 	{ "rescue_delay",              		VAR_UINT8 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 35 },PG_PID_PROFILE, offsetof(pidProfile_t, rescue_delay) },
 #endif
 #ifdef USE_HF3D_ELEVATOR_FILTER

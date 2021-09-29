@@ -154,6 +154,7 @@ typedef struct pidProfile_s {
     uint8_t error_decay_always;             // Always decay accumulated I term and Abs Control error?
     uint8_t error_decay_rate;               // Rate to decay accumulated error in deg/s
     uint8_t rescue_collective;             	// Collective pitch command when rescue is fully upright (100 = 8 degrees of pitch)
+	uint8_t rescue_collective_boost;        // Collective pitch boost until rescue_delay has expired
     uint8_t rescue_delay;             		// T/10 before rolling non inverted :if==0, heli will immediately go to upright, 
 											//30==3s inverted rescue before roll to upright: 35==disabe upright. Will just continue.  																												 
     uint16_t elevator_filter_gain;          // Elevator stop de-bounce feedforward filter gain
